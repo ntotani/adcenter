@@ -1,8 +1,8 @@
 {
     "init_cfg":{
-       "isLandscape": true,
+       "isLandscape": false,
        "name": "leadblow",
-       "width": 960,
+       "width": 360,
        "height": 640,
        "entry": "src/main.lua"
     },

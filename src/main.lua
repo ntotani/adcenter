@@ -21,7 +21,7 @@ local function main()
     -- avoid memory leak
     collectgarbage("setpause", 100)
     collectgarbage("setstepmul", 5000)
-    cc.Director:getInstance():getOpenGLView():setDesignResolutionSize(480, 320, 0)
+    cc.Director:getInstance():getOpenGLView():setDesignResolutionSize(360, 640, 0)
 	cc.FileUtils:getInstance():addSearchResolutionsOrder("src");
 	cc.FileUtils:getInstance():addSearchResolutionsOrder("res");
 	local schedulerID = 0
@@ -206,27 +206,84 @@ local function main()
         return layerMenu
     end
 
-    -- play background music, preload effect
+    ccb.MainScene = {}
+    local ms = ccb.MainScene
+    local ans = 0
+    local answers = {}
 
-    -- uncomment below for the BlackBerry version
-    local bgMusicPath = nil 
-    if (cc.PLATFORM_OS_IPHONE == targetPlatform) or (cc.PLATFORM_OS_IPAD == targetPlatform) then
-        bgMusicPath = cc.FileUtils:getInstance():fullPathForFilename("res/background.caf")
-    else
-        bgMusicPath = cc.FileUtils:getInstance():fullPathForFilename("res/background.mp3")
+    local function refreshQuiz()
+        ans = math.random(9)
+        ms.quiz:setString(10 - ans)
+        for i=1, 3 do
+        	    answers[i] = math.random(9)
+        end
+        answers[math.random(3)] = ans
+        for i=1, 3 do
+            ms["ans_" .. i]:setString(answers[i])
+        end
     end
-    cc.SimpleAudioEngine:getInstance():playMusic(bgMusicPath, true)
-    local effectPath = cc.FileUtils:getInstance():fullPathForFilename("effect1.wav")
-    cc.SimpleAudioEngine:getInstance():preloadEffect(effectPath)
+
+    local function createBoy()
+        local sfc = cc.SpriteFrameCache:getInstance()
+        sfc:addSpriteFrames("img/boy.plist")
+        local frames = {}
+        for i=1, 3 do
+        	    frames[i] = sfc:getSpriteFrame("boy_0" .. (i - 1) .. ".png")
+        end
+        local sprite = cc.Sprite:createWithSpriteFrame(frames[1])
+        local animation = cc.Animation:createWithSpriteFrames(frames, 0.5)
+        local animate = cc.Animate:create(animation);
+        sprite:runAction(cc.RepeatForever:create(animate))
+        return sprite
+    end
+
+    local function initUnderLayer()
+        local sbn = cc.SpriteBatchNode:create("img/tile.png")
+        local tile = cc.Sprite:createWithTexture(sbn:getTexture())
+        local boy = createBoy()
+        ms.underLayer:addChild(boy)
+        ms.underLayer:addChild(tile)
+    end
 
     local function loadCCBLayer()
-        ccb.MainScene = {}
-        ccb.MainScene.onMenu = function(parameters)
+        ms.onMenu = function(parameters)
             print(ccb.MainScene.mAnimationManager:getAutoPlaySequenceId())
             ccb.MainScene.dog:stopAllActions()
         end
         local  node  = CCBReaderLoad("ccbi/MainScene.ccbi", CCBProxy:create(), nil)
         local  layer = tolua.cast(node,"cc.Layer")
+        refreshQuiz()
+        initUnderLayer()
+
+        -- handing touch events
+        local function onTouchBegan(touch, event)
+            return true
+        end
+        local function onTouchMoved(touch, event)
+        end
+        local function onTouchEnded(touch, event)
+            local location = touch:getLocation()
+            --cclog("onTouchEnded: %0.2f, %0.2f", location.x, location.y)
+            for i=1, 3 do
+            	    if cc.rectContainsPoint(ms["ans_" .. i]:getBoundingBox(), location) then
+            	    	    if answers[i] == ans then
+            	    	    	    print('ok')
+            	    	    	else
+            	    	    	    print("ng")
+            	    	    end
+            	    	    refreshQuiz()
+            	    	    break
+            	    end
+            end
+        end
+
+        local listener = cc.EventListenerTouchOneByOne:create()
+        listener:registerScriptHandler(onTouchBegan,cc.Handler.EVENT_TOUCH_BEGAN )
+        listener:registerScriptHandler(onTouchMoved,cc.Handler.EVENT_TOUCH_MOVED )
+        listener:registerScriptHandler(onTouchEnded,cc.Handler.EVENT_TOUCH_ENDED )
+        local eventDispatcher = layer:getEventDispatcher()
+        eventDispatcher:addEventListenerWithSceneGraphPriority(listener, layer)
+
         return layer
     end
 
